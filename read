@@ -1,0 +1,160 @@
+/*!
+ * Initiative JavaScript Library v1.0.0
+ * http://initiati-ve.ca
+ *
+ * Copyright 2017, Kenny Tchu
+ * Dual licensed under the MIT.
+ *
+ * Date: Nov 30 2017 
+ * 
+ */
+
+var json = {
+    "glossary": {
+        "title": "example glossary",
+        "GlossDiv": {
+            "title": "S",
+            "GlossList": {
+                "GlossEntry": {
+                    "ID": "SGML",
+                    "SortAs": "SGML",
+                    "GlossTerm": "Standard Generalized Markup Language",
+                    "Acronym": "SGML",
+                    "Abbrev": "ISO 8879:1986",
+                    "GlossDef": {
+                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
+                        "GlossSeeAlso": ["GML", "XML"]
+                    },
+                    "GlossSee": "markup"
+                }
+            }
+        }
+    },
+    "gloss": {
+        "title": "example glossary2",
+        "ken": {
+            "id": 2,
+            "lastname": "tchu"
+        }
+    },
+    "gloss2": {
+        "blabla": "ey",
+    }
+}
+
+var readJson = {
+    params: {
+        list: [],
+        queries: {
+            type: "",
+            fields: "",
+            objects: []
+        },
+        sources: []
+    },
+    initparams: function () {
+        readJson.params.list = [];
+    },
+    searchkey: function (obj, search, root) {
+        if (typeof obj != "object") {
+            return false;
+        }
+
+        for (var i in obj) {
+            if (i == search) {
+                readJson.params.list.push(obj[i]);
+            }
+
+            if (obj[i] !== null && typeof (obj[i]) == "object" && i != search) {
+                readJson.searchkey(obj[i], search, 0);
+            }
+        }
+        if (root == 1) {
+            return readJson.params.list;
+        }
+    },
+    insertkey: function () {
+
+    },
+    query: function (query, fn) {
+        //reset parameters
+        readJson.initparams();
+
+        var regexp = /([^\s]+)/g;
+        var arr = query.match(regexp);
+
+//        var reg = /^[^\s]+/gi;
+//        var statement = query.match(reg);
+//        if (statement[0].toLowerCase() == 'select') {
+//            var regex = /(^select\s+)(.*)(\s+from)(.*)(\s+where)(.*)/gi;
+//        } else if (statement[0].toLowerCase() == 'update') {
+//            var regex = /(^update\s+)(.*)(\s+set)(.*)(\s+where)(.*)/gi;
+//        } else {
+//            alert("Error statement regex");
+//            return;
+//        }
+
+        if (Array.isArray(arr)) {
+            readJson.params.queries.type = arr[0];
+            readJson.params.queries.fields = arr[1];
+            var qObjName = arr[3];
+
+            var promise = new Promise((resolve, reject) => {
+                if (typeof window[qObjName] != 'object') {
+                    //Test if it's a link
+                    var linkRegex = /^(?:(?:https?|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,}))\.?)(?::\d{2,5})?(?:[/?#]\S*)?$/i
+                    var url = qObjName.match(linkRegex);
+                    if (typeof url == 'undefined') {
+                        reject("Not a valid object");
+                    } else {
+                        // getting the json
+                        var oReq = new XMLHttpRequest();
+                        //Bypassing the cache
+                        oReq.open("GET", url + ((/\?/).test(url) ? "&" : "?") + (new Date()).getTime(), true);
+                        oReq.onreadystatechange = function () {
+
+                            if (this.readyState == 4)
+                            {
+                                if (this.status == 200) {
+                                    if (this.response) {
+                                        try {
+                                            readJson.params.queries.objects.push(JSON.parse(this.response));
+                                            resolve(readJson.params.queries.objects);
+                                        } catch (e) {
+                                            reject(e); // error in the above string (in this case, yes)!
+                                        }
+                                    }
+                                } else if (this.status >= 400) {
+                                    reject(this.response);
+                                } else {
+                                    reject("http error")
+                                }
+                            }
+                        };
+                        oReq.send();
+                    }
+                } else {
+                    readJson.params.queries.objects.push(window[qObjName]);
+                    resolve(readJson.params.queries.objects);
+                }
+            });
+        }
+
+        promise.then(function (obj) {
+            var result = readJson.queryType(readJson.params.queries.type, obj);
+            fn.apply(this, [result]);
+        });
+    },
+    queryType: function (statement, obj) {
+        var result = 'Error - no Statement';
+        switch (statement.toLowerCase()) {
+            case 'select':
+                result = readJson.searchkey(obj[0], readJson.params.queries.fields, 1)
+                break;
+            case 'insert':
+                result = readJson.insertkey();
+                break;
+        }
+        return result
+    }
+}
