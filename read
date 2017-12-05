@@ -44,18 +44,26 @@ var json = {
 
 var readJson = {
     params: {
-        list: [],
+        result: {},
         queries: {
             type: "",
-            fields: "",
+            fields: [],
             objects: []
         },
         sources: []
     },
     initparams: function () {
-        readJson.params.list = [];
+        readJson.params.result = {};
+        readJson.queries = {
+            type: "",
+            fields: [],
+            sources: "",
+            conditions: ""
+        };
+        // store dynamically object for futur use
+        // readJson.params.queries.objects
     },
-    searchkey: function (obj, search, root) {
+    searchkey: function (obj, search, exit) {
         if (typeof obj != "object") {
             return false;
         }
@@ -69,8 +77,9 @@ var readJson = {
                 readJson.searchkey(obj[i], search, 0);
             }
         }
-        if (root == 1) {
-            return readJson.params.list;
+
+        if (exit == 1) {
+           return readJson.params.list;
         }
     },
     insertkey: function () {
@@ -80,30 +89,51 @@ var readJson = {
         //reset parameters
         readJson.initparams();
 
-        var regexp = /([^\s]+)/g;
-        var arr = query.match(regexp);
+        var reg = /^[^\s]+/gi;
+        var statement = query.match(reg);
+        if (statement[0].toLowerCase() == 'select') {
+            var regex = /(^select\s+)(.*)(\s+from)(?:(.*)(\s+where)(.*)|(.*))/i;
+        } else if (statement[0].toLowerCase() == 'update') {
+            var regex = /(^update\s+)(.*)(\s+set)(?:(.*)(\s+where)(.*)|(.*))/i;
+        } else {
+            alert("Error statement regex");
+            return;
+        }
 
-//        var reg = /^[^\s]+/gi;
-//        var statement = query.match(reg);
-//        if (statement[0].toLowerCase() == 'select') {
-//            var regex = /(^select\s+)(.*)(\s+from)(.*)(\s+where)(.*)/gi;
-//        } else if (statement[0].toLowerCase() == 'update') {
-//            var regex = /(^update\s+)(.*)(\s+set)(.*)(\s+where)(.*)/gi;
-//        } else {
-//            alert("Error statement regex");
-//            return;
-//        }
+        var match = query.match(regex);
 
-        if (Array.isArray(arr)) {
-            readJson.params.queries.type = arr[0];
-            readJson.params.queries.fields = arr[1];
-            var qObjName = arr[3];
+        //console.log(match)
+        if (Array.isArray(match)) {
+            readJson.params.queries.type = match[1].trim();
+
+            //Multiple fields
+            var fields = match[2].split(",");
+            var fieldsArr = [];
+            for (var i = 0; i < fields.length; i++) {
+                fieldsArr.push(fields[i].trim());
+
+            }
+            readJson.params.queries.fields = fieldsArr;
+
+            if (typeof match[4] == 'undefined') {
+                readJson.params.queries.sources = match[7].trim();
+            } else {
+                readJson.params.queries.sources = match[4].trim();
+                readJson.params.queries.conditions = match[6].trim();
+            }
+        }
+
+        console.table(readJson.params.queries);
+
+        if (readJson.params.queries.type != 'undefined' && readJson.params.queries.sources != 'undefined' && Array.isArray(readJson.params.queries.fields)) {
+            var qObjName = readJson.params.queries.sources;
 
             var promise = new Promise((resolve, reject) => {
                 if (typeof window[qObjName] != 'object') {
                     //Test if it's a link
-                    var linkRegex = /^(?:(?:https?|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,}))\.?)(?::\d{2,5})?(?:[/?#]\S*)?$/i
+                    var linkRegex = /^(?:(?:https?|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]-*)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,}))\.?)(?::\d{2,5})?(?:[/?#]\S*)?$/i;
                     var url = qObjName.match(linkRegex);
+
                     if (typeof url == 'undefined') {
                         reject("Not a valid object");
                     } else {
@@ -138,23 +168,30 @@ var readJson = {
                     resolve(readJson.params.queries.objects);
                 }
             });
+            promise.then(function (obj) {
+                var result = readJson.queryType(readJson.params.queries.type, obj);
+                fn.apply(this, [result]);
+            });
+        } else {
+            console.log('Regex error');
         }
-
-        promise.then(function (obj) {
-            var result = readJson.queryType(readJson.params.queries.type, obj);
-            fn.apply(this, [result]);
-        });
     },
     queryType: function (statement, obj) {
         var result = 'Error - no Statement';
         switch (statement.toLowerCase()) {
             case 'select':
-                result = readJson.searchkey(obj[0], readJson.params.queries.fields, 1)
+                for (var i = 0; i < readJson.params.queries.fields.length; i++) {
+                    readJson.params.list = [];
+                    var search = readJson.params.queries.fields[i];
+                    var res = readJson.searchkey(obj[0], search, 1);
+                    readJson.params.result[search] = res;
+                }
+                return readJson.params.result;
                 break;
-            case 'insert':
+            case 'update':
                 result = readJson.insertkey();
                 break;
         }
-        return result
+        return result;
     }
 }
