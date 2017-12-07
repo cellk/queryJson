@@ -202,7 +202,8 @@ var readJson = {
                         // getting the json
                         var oReq = new XMLHttpRequest();
                         //Bypassing the cache
-                        oReq.open("GET", url + ((/\?/).test(url) ? "&" : "?") + (new Date()).getTime(), true);
+                        //oReq.open("GET", url + ((/\?/).test(url) ? "&" : "?") + (new Date()).getTime(), true);
+                        oReq.open("GET", url , true);
                         oReq.onreadystatechange = function () {
 
                             if (this.readyState == 4)
@@ -245,33 +246,38 @@ var readJson = {
                 readJson.params.result = {};
                 if (readJson.params.queries.conditions.length > 0) {
                     var resCondition = readJson.condition(obj[0], 1);
+                    var temp = [];
                     for (var i = 0; i < resCondition.length; i++) {
-
+                        var temp2 = {};
                         for (var j = 0; j < readJson.params.queries.fields.length; j++) {
                             readJson.params.list = []; // reset result
                             var search = readJson.params.queries.fields[j];
-                            var res = {};
-                            res = readJson.searchkey(resCondition[i], search, 1);
+                            temp2[search] = [];
+                            var res = readJson.searchkey(resCondition[i], search, 1);
                             if (res.length > 0) {
-                                //If there is a result
-                                readJson.params.result[search] = res;
+                                //If there is a result 
+                                temp2[search].push(res);
                             }
                         }
-                        
+                        temp.push(temp2);
                     }
+                    readJson.params.result = temp;
                     result = readJson.params.result;
                 } else {
+                    var temp = [];
                     for (var i = 0; i < readJson.params.queries.fields.length; i++) {
                         readJson.params.list = []; // reset result
                         var search = readJson.params.queries.fields[i];
-                        var res = {};
-                        res = readJson.searchkey(obj[0], search, 1);
+                        var res = readJson.searchkey(obj[0], search, 1);
+                        temp[search] = [];
                         if (res.length > 0) {
                             //If there is a result
-                            readJson.params.result[search] = res;
+                            temp[search].push(res);
                         }
+                        console.log(temp)
                     }
                 }
+                readJson.params.result = temp;
                 result = readJson.params.result;
                 break;
             case 'update':
