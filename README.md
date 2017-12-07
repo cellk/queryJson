@@ -72,9 +72,8 @@ var json = {"fullname":"john doe","location":{"latitude":433453435,"longitude":0
 
 readJson.query("select country_id, country from json", function (res) {
  readJson.params.localObj = res.country;
- idCountry = res["country_id"][0][0]
-
-     readJson.query("select * from localObj where id = "+idCountry, function (res) {
-     console.log(res);
+ idCountry = res["country_id"][0][0];
+ readJson.query("select * from localObj where id = "+idCountry, function (res) {
+     	console.log(res);
     })
 })
